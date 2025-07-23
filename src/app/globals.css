@@ -1,26 +1,252 @@
-@import "tailwindcss";
+/* 노션 스타일 폰트 import - 반드시 최상단에 위치 */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* 노션 색상 팔레트 */
+  --notion-bg: #ffffff;
+  --notion-bg-secondary: #f8f9fa;
+  --notion-text: #37352f;
+  --notion-text-light: #6b7280;
+  --notion-border: #e5e7eb;
+  --notion-border-light: #f3f4f6;
+  --notion-accent: #2563eb;
+  --notion-accent-light: #dbeafe;
+  --notion-orange: #f97316;
+  --notion-orange-light: #fed7aa;
+  --notion-success: #10b981;
+  --notion-success-light: #d1fae5;
+  --notion-gray: #6b7280;
+  --notion-gray-light: #f9fafb;
+  --notion-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+  --notion-shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  --notion-shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+@layer base {
+  * {
+    @apply border-gray-200;
+  }
+  
+  body {
+    @apply bg-white text-slate-800 font-inter antialiased;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    line-height: 1.6;
+  }
+  
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-semibold text-slate-900;
+    letter-spacing: -0.025em;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+@layer components {
+  /* 노션 스타일 카드 */
+  .notion-card {
+    @apply bg-white rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-all duration-200 ease-out;
+    box-shadow: var(--notion-shadow);
+  }
+  
+  .notion-card:hover {
+    box-shadow: var(--notion-shadow-lg);
+    transform: translateY(-1px);
+  }
+
+  /* 노션 스타일 버튼 */
+  .notion-btn {
+    @apply inline-flex items-center justify-center px-4 py-2 rounded-lg font-medium transition-all duration-200 ease-out;
+  }
+  
+  .notion-btn-primary {
+    @apply notion-btn bg-blue-600 text-white hover:bg-blue-700 shadow-sm hover:shadow-md;
+  }
+  
+  .notion-btn-secondary {
+    @apply notion-btn bg-gray-100 text-gray-700 hover:bg-gray-200 border border-gray-200 hover:border-gray-300;
+  }
+  
+  .notion-btn-ghost {
+    @apply notion-btn text-gray-600 hover:bg-gray-100 hover:text-gray-900;
+  }
+
+  /* 노션 스타일 입력 필드 */
+  .notion-input {
+    @apply w-full px-4 py-3 rounded-lg border border-gray-200 bg-white text-slate-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200;
+  }
+  
+  .notion-textarea {
+    @apply notion-input resize-none;
+  }
+
+  /* 노션 스타일 컨테이너 */
+  .notion-container {
+    @apply max-w-6xl mx-auto px-4 sm:px-6 lg:px-8;
+  }
+  
+  .notion-page {
+    @apply min-h-screen bg-gray-50;
+  }
+
+  /* 노션 스타일 헤더 */
+  .notion-header {
+    @apply bg-white/80 backdrop-blur-md border-b border-gray-200/50 sticky top-0 z-50;
+  }
+
+  /* 노션 스타일 아이콘 버튼 */
+  .notion-icon-btn {
+    @apply p-2 rounded-lg text-gray-500 hover:text-gray-900 hover:bg-gray-100 transition-all duration-200 ease-out;
+  }
+
+  /* 노션 스타일 배지 */
+  .notion-badge {
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
+  }
+  
+  .notion-badge-orange {
+    @apply notion-badge bg-orange-100 text-orange-800;
+  }
+  
+  .notion-badge-green {
+    @apply notion-badge bg-emerald-100 text-emerald-800;
+  }
+  
+  .notion-badge-blue {
+    @apply notion-badge bg-blue-100 text-blue-800;
+  }
+
+  /* 노션 스타일 그리드 */
+  .notion-grid {
+    @apply grid gap-4 sm:gap-6;
+  }
+
+  /* 노션 스타일 분할선 */
+  .notion-divider {
+    @apply border-t border-gray-100;
+  }
+
+  /* 노션 스타일 플로팅 버튼 */
+  .notion-fab {
+    @apply fixed bottom-6 right-6 w-14 h-14 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-lg hover:shadow-xl flex items-center justify-center transition-all duration-200 ease-out z-50;
+  }
+  
+  .notion-fab:hover {
+    transform: translateY(-2px);
+  }
+
+  /* 노션 스타일 내비게이션 */
+  .notion-nav {
+    @apply bg-white border-t border-gray-200 backdrop-blur-md bg-white/90;
+  }
+  
+  .notion-nav-item {
+    @apply flex flex-col items-center py-2 px-3 text-gray-500 hover:text-blue-600 transition-colors duration-200;
+  }
+  
+  .notion-nav-item.active {
+    @apply text-blue-600;
+  }
+
+  /* 노션 스타일 애니메이션 */
+  .notion-fade-in {
+    animation: notionFadeIn 0.3s ease-out;
+  }
+  
+  .notion-slide-up {
+    animation: notionSlideUp 0.4s ease-out;
+  }
+
+  /* 노션 스타일 유틸리티 */
+  .notion-blur {
+    backdrop-filter: blur(12px);
+  }
+  
+  .notion-glass {
+    @apply bg-white/80 backdrop-blur-md border border-white/20;
+  }
+
+  /* 라인 클램프 */
+  .line-clamp-1 {
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 1;
+  }
+  
+  .line-clamp-2 {
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+  }
+}
+
+@layer utilities {
+  .font-inter {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  }
+  
+  /* Safe Area 유틸리티 - 표준 CSS 사용 */
+  .safe-area-top {
+    height: env(safe-area-inset-top);
+    min-height: 0px; /* fallback */
+  }
+  
+  .safe-area-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
+
+/* 노션 스타일 키프레임 애니메이션 */
+@keyframes notionFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes notionSlideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* 노션 스타일 스크롤바 */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* 모바일 터치 개선 */
+@media (hover: none) {
+  .notion-card:hover {
+    transform: none;
+  }
+  
+  .notion-fab:hover {
+    transform: none;
+  }
 }
