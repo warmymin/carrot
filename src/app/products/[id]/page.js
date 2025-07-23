@@ -330,8 +330,8 @@ export default function ProductDetailPage() {
       setComments(savedComments);
       setLikes(savedLikes);
       setIsLiked(savedIsLiked);
-    }
-  }, [id]);
+    } 
+  }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleBack = () => {
     router.back();
