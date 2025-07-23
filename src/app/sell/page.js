@@ -1,20 +1,34 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
+import { Suspense } from 'react';
 import ProductForm from '@/components/ProductForm';
 import { createSystemNotification } from '@/utils/notifications';
 
-export default function SellPage() {
+function SellPageContent() {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const editId = searchParams.get('edit'); // 편집할 상품 ID
-  const isEditMode = !!editId; // 편집 모드인지 확인
-
+  const [editId, setEditId] = useState(null);
+  const [isEditMode, setIsEditMode] = useState(false);
   const [productData, setProductData] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // 클라이언트 사이드에서만 URL 파라미터 확인
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const urlParams = new URLSearchParams(window.location.search);
+      const editParam = urlParams.get('edit');
+      
+      if (editParam) {
+        setEditId(editParam);
+        setIsEditMode(true);
+      }
+      setIsLoading(false);
+    }
+  }, []);
 
   // 편집 모드일 때 기존 데이터 불러오기
   useEffect(() => {
-    if (isEditMode && editId) {
+    if (isEditMode && editId && typeof window !== 'undefined') {
       const savedProducts = JSON.parse(localStorage.getItem('carrotProducts') || '[]');
       const productToEdit = savedProducts.find(p => p.id === parseInt(editId));
       
@@ -83,6 +97,20 @@ export default function SellPage() {
     router.back();
   };
 
+  if (isLoading) {
+    return (
+      <div className="notion-page">
+        <div className="safe-area-top bg-white"></div>
+        <div className="flex items-center justify-center min-h-screen">
+          <div className="text-center">
+            <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+            <p className="text-gray-600">로딩 중...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="notion-page">
       {/* 상태바 영역 */}
@@ -117,4 +145,22 @@ export default function SellPage() {
       </div>
     </div>
   );
-} 
+}
+
+export default function SellPage() {
+  return (
+    <Suspense fallback={
+      <div className="notion-page">
+        <div className="safe-area-top bg-white"></div>
+        <div className="flex items-center justify-center min-h-screen">
+          <div className="text-center">
+            <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+            <p className="text-gray-600">페이지 로딩 중...</p>
+          </div>
+        </div>
+      </div>
+    }>
+      <SellPageContent />
+    </Suspense>
+  );
+}
