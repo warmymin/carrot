@@ -4,7 +4,6 @@ import { useRouter } from 'next/navigation';
 import { Suspense } from 'react';
 import ProductForm from '@/components/ProductForm';
 import { createSystemNotification } from '@/utils/notifications';
-import { getProduct, createProduct, updateProduct } from '@/lib/services/products';
 
 function SellPageContent() {
   const router = useRouter();
@@ -27,65 +26,67 @@ function SellPageContent() {
     }
   }, []);
 
-  // 편집 모드일 때 기존 데이터 불러오기 (Supabase에서)
+  // 편집 모드일 때 기존 데이터 불러오기
   useEffect(() => {
-    const loadProduct = async () => {
-      if (isEditMode && editId) {
-        try {
-          const product = await getProduct(parseInt(editId));
-          if (product) {
-            setProductData({
-              ...product,
-              desc: product.description, // UI에서는 desc 사용
-              price: product.price === 0 ? '나눔' : product.price
-            });
-          } else {
-            alert('수정할 상품을 찾을 수 없습니다.');
-            router.push('/');
-          }
-        } catch (error) {
-          console.error('상품 로딩 중 오류:', error);
-          alert('상품을 불러오는 중 오류가 발생했습니다.');
-          router.push('/');
-        }
+    if (isEditMode && editId && typeof window !== 'undefined') {
+      const savedProducts = JSON.parse(localStorage.getItem('carrotProducts') || '[]');
+      const productToEdit = savedProducts.find(p => p.id === parseInt(editId));
+      
+      if (productToEdit) {
+        setProductData(productToEdit);
+      } else {
+        alert('수정할 상품을 찾을 수 없습니다.');
+        router.push('/');
       }
-    };
-
-    if (!isLoading) {
-      loadProduct();
     }
-  }, [isEditMode, editId, router, isLoading]);
+  }, [isEditMode, editId, router]);
 
-  const handleFormSubmit = async (formData) => {
+  const handleFormSubmit = (formData) => {
     try {
       const productDataForSave = {
+        id: isEditMode ? parseInt(editId) : Date.now(),
         title: formData.title,
+        desc: formData.description,
         description: formData.description,
         category: formData.category,
         price: formData.price,
         image: formData.images[0],
         images: formData.images,
         location: formData.location,
-        status: formData.status
+        distance: '',
+        timeAgo: isEditMode ? '수정됨' : '방금 전',
+        viewCount: isEditMode ? (JSON.parse(localStorage.getItem('carrotProducts') || '[]').find(p => p.id === parseInt(editId))?.viewCount || 0) : 0,
+        likeCount: isEditMode ? (parseInt(localStorage.getItem(`likes_${editId}`) || '0')) : 0,
+        chatCount: isEditMode ? (JSON.parse(localStorage.getItem(`comments_${editId}`) || '[]').length) : 0,
+        status: formData.status,
+        createdAt: isEditMode ? (JSON.parse(localStorage.getItem('carrotProducts') || '[]').find(p => p.id === parseInt(editId))?.createdAt || new Date().toISOString()) : new Date().toISOString(),
+        updatedAt: new Date().toISOString()
       };
 
-      let savedProduct;
+      const savedProducts = JSON.parse(localStorage.getItem('carrotProducts') || '[]');
       
+      let updatedProducts;
       if (isEditMode) {
-        // 기존 상품 수정 (Supabase)
-        savedProduct = await updateProduct(parseInt(editId), productDataForSave);
+        // 기존 상품 수정
+        updatedProducts = savedProducts.map(p => 
+          p.id === parseInt(editId) ? { ...p, ...productDataForSave } : p
+        );
         alert('상품이 성공적으로 수정되었습니다!');
       } else {
-        // 새 상품 등록 (Supabase)
-        savedProduct = await createProduct(productDataForSave);
+        // 새 상품 등록
+        updatedProducts = [productDataForSave, ...savedProducts];
         alert('상품이 성공적으로 등록되었습니다!');
-        
-        // 알림 생성
-        createSystemNotification(`새로운 상품 "${savedProduct.title}"이 등록되었어요!`);
+      }
+      
+      localStorage.setItem('carrotProducts', JSON.stringify(updatedProducts));
+      
+      // 알림 생성
+      if (!isEditMode) {
+        createSystemNotification(`새로운 상품 "${productDataForSave.title}"이 등록되었어요!`);
       }
       
       // 상품 상세 페이지로 이동
-      router.push(`/products/${savedProduct.id}`);
+      router.push(`/products/${productDataForSave.id}`);
     } catch (error) {
       console.error('상품 등록/수정 중 오류가 발생했습니다:', error);
       alert('상품 등록/수정 중 오류가 발생했습니다. 다시 시도해주세요.');

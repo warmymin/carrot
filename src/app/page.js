@@ -4,69 +4,12 @@ import { useRouter } from 'next/navigation';
 import ProductList from "@/components/ProductList";
 import SearchModal from "@/components/SearchModal";
 import NotificationModal from "@/components/NotificationModal";
-
-// 기본 더미 상품 데이터
-const defaultProducts = [
-  {
-    id: 1,
-    title: "파세코 창문형 인버터 에어컨 PWA-3250W (연장)",
-    desc: "거의 새것, 케이스 포함. 보호필름 부착상태입니다.",
-    price: 340000,
-    image: "https://images.unsplash.com/photo-1596984559333-71b0c7c9e7a0?w=400&auto=format",
-    location: "망원제1동",
-    distance: "400m",
-    timeAgo: "1시간 전",
-    viewCount: 45,
-    likeCount: 6,
-    chatCount: 0,
-    status: null
-  },
-  {
-    id: 2,
-    title: "캐리어 벽걸이 에어컨",
-    desc: "18평형, 설치비 별도. 리모컨 포함",
-    price: "나눔",
-    image: "https://images.unsplash.com/photo-1631700611307-37dbcb89ef7e?w=400&auto=format",
-    location: "양평동4가",
-    distance: "1.8km",
-    timeAgo: "5분 전",
-    viewCount: 89,
-    likeCount: 0,
-    chatCount: 1,
-    status: "나눔"
-  },
-  {
-    id: 3,
-    title: "m1 맥북 a급 급처",
-    desc: "액정 깨짐 없음, 배터리 상태 양호",
-    price: 700000,
-    image: "https://images.unsplash.com/photo-1517336714731-489689fd1ca8?w=400&auto=format",
-    location: "양평제2동",
-    distance: "",
-    timeAgo: "4분 전",
-    viewCount: 67,
-    likeCount: 1,
-    chatCount: 1
-  },
-  {
-    id: 4,
-    title: "나눔 샤오미 미에어 공기청정기",
-    desc: "정품, 박스 및 충전기 포함",
-    price: "나눔",
-    image: "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=400&auto=format",
-    location: "성산동",
-    distance: "900m",
-    timeAgo: "1일 전",
-    viewCount: 134,
-    likeCount: 0,
-    chatCount: 8,
-    status: "나눔"
-  }
-];
+import { getProducts } from "@/lib/services/products";
 
 export default function Home() {
   const router = useRouter();
-  const [products, setProducts] = useState(defaultProducts);
+  const [products, setProducts] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState('전체');
   
   // 지역 선택 드롭다운
@@ -84,98 +27,58 @@ export default function Home() {
   
   const locations = ['응암동', '북가좌동', '남가좌동', '갈현동'];
 
-  // 상품에 로컬 스토리지 데이터(댓글, 좋아요) 반영
+  // Supabase에서 상품 데이터 로드
+  useEffect(() => {
+    const loadProducts = async () => {
+      try {
+        setIsLoading(true);
+        const data = await getProducts();
+        setProducts(data);
+      } catch (error) {
+        console.error('상품 로딩 중 오류:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadProducts();
+  }, []);
+
+  // 상품에 로컬 스토리지 데이터(댓글, 좋아요) 반영 - Phase 2에서 Supabase로 전환 예정
   const updateProductsWithLocalData = (products) => {
     return products.map(product => {
       // 댓글 수 업데이트
       const comments = JSON.parse(localStorage.getItem(`comments_${product.id}`) || '[]');
-      const likes = parseInt(localStorage.getItem(`likes_${product.id}`) || product.likeCount || '0');
+      const likes = parseInt(localStorage.getItem(`likes_${product.id}`) || product.like_count || '0');
       
       return {
         ...product,
         chatCount: comments.length,
-        likeCount: likes
+        likeCount: likes,
+        desc: product.description // Supabase에서는 description 필드 사용
       };
     });
   };
 
-
-
-  // 컴포넌트 마운트 시 로컬 스토리지에서 등록된 상품들 불러오기
-  useEffect(() => {
-    const savedProducts = JSON.parse(localStorage.getItem('carrotProducts') || '[]');
-    let allProducts = [...savedProducts, ...defaultProducts];
-    
-    // 로컬 스토리지 댓글/좋아요 데이터 반영
-    allProducts = updateProductsWithLocalData(allProducts);
-    
-    setProducts(allProducts);
-  }, []);
-
-  // 포커스/비져빌리티 변경 시 데이터 새로고침
-  useEffect(() => {
-    const handleFocus = () => {
-      const savedProducts = JSON.parse(localStorage.getItem('carrotProducts') || '[]');
-      let allProducts = [...savedProducts, ...defaultProducts];
-      allProducts = updateProductsWithLocalData(allProducts);
-      setProducts(allProducts);
-    };
-
-    const handleVisibilityChange = () => {
-      if (!document.hidden) {
-        handleFocus();
-      }
-    };
-
-    window.addEventListener('focus', handleFocus);
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-
-    return () => {
-      window.removeEventListener('focus', handleFocus);
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-    };
-  }, []);
-
-  const handleSellClick = () => {
-    router.push('/sell');
+  // 상품 수량 카운트 업데이트
+  const updateProductChatCount = (productId, count) => {
+    setProducts(prevProducts => 
+      prevProducts.map(p => 
+        p.id === productId ? { ...p, chatCount: count } : p
+      )
+    );
   };
 
-  // 지역 선택 처리
-  const handleLocationSelect = (location) => {
-    setSelectedLocation(location);
-    setIsLocationDropdownOpen(false);
-  };
-
-  // 검색 처리
-  const handleSearch = (searchKeyword) => {
-    setKeyword(searchKeyword);
-    setIsSearchModalOpen(false);
-  };
-
-  // 읽지 않은 알림 개수 업데이트
-  useEffect(() => {
-    const updateNotificationCount = () => {
-      const notifications = JSON.parse(localStorage.getItem('carrotNotifications') || '[]');
-      const unreadCount = notifications.filter(n => !n.isRead).length;
-      setUnreadNotificationCount(unreadCount);
-    };
-
-    // 초기 로드 시 알림 개수 확인
-    updateNotificationCount();
-
-    // 알림 모달이 닫힐 때마다 개수 업데이트
-    if (!isNotificationModalOpen) {
-      updateNotificationCount();
-    }
-  }, [isNotificationModalOpen]);
+  // localStorage와 Supabase 데이터 동기화
+  const syncedProducts = updateProductsWithLocalData(products);
 
   // 드롭다운 외부 클릭 시 닫기
   useEffect(() => {
-    const handleClickOutside = (event) => {
+    function handleClickOutside(event) {
       if (locationDropdownRef.current && !locationDropdownRef.current.contains(event.target)) {
         setIsLocationDropdownOpen(false);
       }
-    };
+    }
 
     document.addEventListener('mousedown', handleClickOutside);
     return () => {
@@ -183,7 +86,55 @@ export default function Home() {
     };
   }, []);
 
-  const categories = ['전체', '동네소식', '냉방기기', '중고거래', '나눔'];
+  // 알림 개수 업데이트
+  useEffect(() => {
+    const updateNotificationCount = () => {
+      const notifications = JSON.parse(localStorage.getItem('carrotNotifications') || '[]');
+      const unreadCount = notifications.filter(n => !n.isRead).length;
+      setUnreadNotificationCount(unreadCount);
+    };
+
+    updateNotificationCount();
+    
+    // 스토리지 이벤트 리스너 (다른 탭에서의 변경사항 감지)
+    const handleStorageChange = () => updateNotificationCount();
+    window.addEventListener('storage', handleStorageChange);
+    
+    // 주기적으로 확인 (같은 탭 내에서의 변경사항 감지)
+    const interval = setInterval(updateNotificationCount, 1000);
+    
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      clearInterval(interval);
+    };
+  }, []);
+
+  const handleCategoryChange = (category) => {
+    setSelectedCategory(category);
+  };
+
+  const handleLocationChange = (location) => {
+    setSelectedLocation(location);
+    setIsLocationDropdownOpen(false);
+  };
+
+  const handleSellClick = () => {
+    router.push('/sell');
+  };
+
+  if (isLoading) {
+    return (
+      <div className="notion-page">
+        <div className="safe-area-top bg-white"></div>
+        <div className="flex items-center justify-center min-h-screen">
+          <div className="text-center">
+            <div className="w-8 h-8 border-4 border-orange-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+            <p className="text-gray-600">상품을 불러오는 중...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="notion-page">
@@ -191,75 +142,63 @@ export default function Home() {
       <div className="safe-area-top bg-white"></div>
       
       {/* 헤더 */}
-      <header className="notion-header">
+      <header className="notion-header sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-gray-100">
         <div className="notion-container">
           <div className="flex items-center justify-between py-4">
-            {/* 지역 선택 드롭다운 */}
-            <div className="relative" ref={locationDropdownRef}>
-              <button 
-                onClick={() => setIsLocationDropdownOpen(!isLocationDropdownOpen)}
-                className="flex items-center gap-2 hover:bg-gray-50 px-2 py-1 rounded-lg transition-colors"
-              >
-                <h1 className="text-xl font-bold text-slate-900">{selectedLocation}</h1>
-                <svg 
-                  className={`w-5 h-5 text-gray-400 transition-transform duration-200 ${
-                    isLocationDropdownOpen ? 'rotate-180' : ''
-                  }`} 
-                  fill="none" 
-                  stroke="currentColor" 
-                  viewBox="0 0 24 24"
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                </svg>
-              </button>
-
-              {/* 지역 드롭다운 메뉴 */}
-              {isLocationDropdownOpen && (
-                <div className="absolute left-0 top-full mt-2 w-40 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-50">
-                  {locations.map((location) => (
-                    <button
-                      key={location}
-                      onClick={() => handleLocationSelect(location)}
-                      className={`w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors ${
-                        selectedLocation === location 
-                          ? 'text-blue-600 bg-blue-50 font-semibold' 
-                          : 'text-slate-700'
-                      }`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm">{location}</span>
-                        {selectedLocation === location && (
-                          <svg className="w-4 h-4 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
-                            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                          </svg>
-                        )}
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
+            {/* 로고 및 지역 선택 */}
             <div className="flex items-center gap-2">
+              <span className="text-xl font-bold text-orange-500">🥕</span>
+              <div className="relative" ref={locationDropdownRef}>
+                <button 
+                  onClick={() => setIsLocationDropdownOpen(!isLocationDropdownOpen)}
+                  className="flex items-center gap-1 text-slate-900 font-semibold hover:text-orange-500 transition-colors"
+                >
+                  <span>{selectedLocation}</span>
+                  <svg className={`w-4 h-4 transition-transform ${isLocationDropdownOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+                
+                {isLocationDropdownOpen && (
+                  <div className="absolute top-full left-0 mt-2 w-32 bg-white border border-gray-200 rounded-lg shadow-lg z-10">
+                    {locations.map((location) => (
+                      <button
+                        key={location}
+                        onClick={() => handleLocationChange(location)}
+                        className={`w-full text-left px-4 py-3 text-sm hover:bg-gray-50 transition-colors first:rounded-t-lg last:rounded-b-lg ${
+                          selectedLocation === location ? 'bg-orange-50 text-orange-600 font-medium' : 'text-gray-700'
+                        }`}
+                      >
+                        {location}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* 우측 아이콘들 */}
+            <div className="flex items-center gap-3">
               <button 
                 onClick={() => setIsSearchModalOpen(true)}
                 className="notion-icon-btn"
-                title="검색"
+                aria-label="검색"
               >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                 </svg>
               </button>
+              
               <button 
                 onClick={() => setIsNotificationModalOpen(true)}
                 className="notion-icon-btn relative"
-                title="알림"
+                aria-label="알림"
               >
-                                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 8a6 6 0 00-12 0v9h12V8z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.73 21a2 2 0 01-3.46 0" />
-                  </svg>
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-5 5v-5zM10.07 2.82a3 3 0 014.24 0l.71.7a3 3 0 00.71.7 3 3 0 000 4.24l-.7.71a3 3 0 00-.71.7 3 3 0 01-4.24 0l-.71-.7a3 3 0 00-.7-.71 3 3 0 010-4.24l.7-.71a3 3 0 00.71-.7z" />
+                </svg>
                 {unreadNotificationCount > 0 && (
-                  <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full min-w-[1.25rem] h-5 flex items-center justify-center px-1">
+                  <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center px-1">
                     {unreadNotificationCount > 99 ? '99+' : unreadNotificationCount}
                   </span>
                 )}
@@ -269,16 +208,37 @@ export default function Home() {
         </div>
       </header>
 
-      {/* 검색 키워드 표시 */}
+      {/* 카테고리 탭 */}
+      <div className="bg-white border-b border-gray-100 sticky top-[73px] z-20">
+        <div className="notion-container">
+          <div className="flex gap-6 py-3 overflow-x-auto">
+            {['전체', '가전제품', '디지털기기', '가구/인테리어', '유아동', '나눔'].map((category) => (
+              <button
+                key={category}
+                onClick={() => handleCategoryChange(category)}
+                className={`whitespace-nowrap text-sm font-medium pb-2 border-b-2 transition-colors ${
+                  selectedCategory === category
+                    ? 'text-orange-500 border-orange-500'
+                    : 'text-gray-600 border-transparent hover:text-slate-900'
+                }`}
+              >
+                {category}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* 검색 결과 표시 */}
       {keyword && (
-        <div className="bg-blue-50 border-b border-blue-200">
+        <div className="bg-blue-50 border-b border-blue-100">
           <div className="notion-container">
             <div className="flex items-center justify-between py-3">
               <div className="flex items-center gap-2">
                 <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                 </svg>
-                <span className="text-blue-700 font-medium text-sm">"{keyword}" 검색 결과</span>
+                <span className="text-blue-700 font-medium text-sm">&quot;{keyword}&quot; 검색 결과</span>
               </div>
               <button
                 onClick={() => setKeyword('')}
@@ -294,38 +254,34 @@ export default function Home() {
         </div>
       )}
 
-      {/* 카테고리 필터 */}
-      <div className="bg-white border-b border-gray-200">
-        <div className="notion-container">
-          <div className="flex gap-2 py-4 overflow-x-auto">
-            {categories.map((category) => (
-              <button 
-                key={category}
-                onClick={() => setSelectedCategory(category)}
-                className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all duration-200 ${
-                  selectedCategory === category 
-                    ? 'bg-blue-600 text-white shadow-md' 
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
-              >
-                {category}
-              </button>
-            ))}
-          </div>
-        </div>
-      </div>
-
       {/* 메인 콘텐츠 */}
       <main className="flex-1 pb-24">
         <ProductList 
-          products={products}
+          products={syncedProducts}
           keyword={keyword}
           selectedCategory={selectedCategory}
-          selectedLocation={selectedLocation}
           onSellClick={handleSellClick}
           onClearKeyword={() => setKeyword('')}
+          selectedLocation={selectedLocation}
         />
       </main>
+
+      {/* 검색 모달 */}
+      <SearchModal 
+        isOpen={isSearchModalOpen}
+        onClose={() => setIsSearchModalOpen(false)}
+        onSearch={(searchKeyword) => {
+          setKeyword(searchKeyword);
+          setIsSearchModalOpen(false);
+        }}
+        currentKeyword={keyword}
+      />
+
+      {/* 알림 모달 */}
+      <NotificationModal 
+        isOpen={isNotificationModalOpen}
+        onClose={() => setIsNotificationModalOpen(false)}
+      />
 
       {/* 플로팅 액션 버튼 */}
       <button 
@@ -379,7 +335,7 @@ export default function Home() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
                 </svg>
                 <span className="absolute -top-1 -right-1 min-w-[16px] h-4 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center px-1">
-                  {products.reduce((sum, p) => sum + p.chatCount, 0)}
+                  {syncedProducts.reduce((sum, p) => sum + p.chatCount, 0)}
                 </span>
               </div>
               <span className="text-xs font-medium">채팅</span>
@@ -396,20 +352,6 @@ export default function Home() {
           </div>
         </div>
       </nav>
-
-      {/* 검색 모달 */}
-      <SearchModal
-        isOpen={isSearchModalOpen}
-        onClose={() => setIsSearchModalOpen(false)}
-        onSearch={handleSearch}
-        selectedLocation={selectedLocation}
-      />
-
-      {/* 알림 모달 */}
-      <NotificationModal
-        isOpen={isNotificationModalOpen}
-        onClose={() => setIsNotificationModalOpen(false)}
-      />
     </div>
   );
 }
