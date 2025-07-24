@@ -59,7 +59,16 @@ function SellPageContent() {
   }, [isEditMode, editId, router, isLoading]);
 
   const handleFormSubmit = async (formData) => {
+    // 로그인 확인
+    if (!isAuthenticated || !user) {
+      alert('상품을 등록하려면 로그인이 필요합니다.');
+      router.push('/login');
+      return;
+    }
+
     try {
+      console.log('👤 Current user for product creation:', user);
+      
       const productDataForSave = {
         title: formData.title,
         description: formData.description,

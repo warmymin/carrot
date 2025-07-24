@@ -82,7 +82,10 @@ export const createProduct = async (product, user = null) => {
     console.log('Supabase response:', { data, error })
     
     if (error) {
-      console.error('Supabase error details:', error)
+      console.error('❌ Supabase error details:', error)
+      console.error('❌ Error message:', error.message)
+      console.error('❌ Error details:', error.details)
+      console.error('❌ Error hint:', error.hint)
       throw new Error(`Supabase error: ${error.message}`)
     }
     
