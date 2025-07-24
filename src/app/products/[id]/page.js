@@ -306,9 +306,8 @@ export default function ProductDetailPage() {
           setProduct(formattedProduct);
           setIsMyProduct(false); // 현재는 모든 상품을 다른 사람 것으로 처리
           
-          // 좋아요와 댓글 데이터는 Supabase 데이터 사용
+          // 좋아요 데이터는 Supabase 데이터 사용 (댓글은 CommentSection에서 처리)
           setLikes(productData.like_count || 0);
-          setComments([]); // 추후 댓글 시스템도 Supabase로 연동 예정
           
           // 로컬 저장된 사용자 좋아요 상태 확인
           const savedIsLiked = localStorage.getItem(`isLiked_${id}`) === 'true';
