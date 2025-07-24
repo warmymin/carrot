@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { getProducts, getProduct } from '@/lib/services/products';
+import { supabase } from '@/lib/supabase';
 
 export default function DebugOwnershipPage() {
   const { user, isAuthenticated } = useAuth();
@@ -74,6 +75,34 @@ export default function DebugOwnershipPage() {
     addLog('=== 테스트 완료 ===');
   };
 
+  const updateProductOwnership = async () => {
+    addLog('=== 상품 소유권 업데이트 시작 ===');
+    addLog(`현재 사용자 ID: ${user?.id}`);
+    addLog(`현재 사용자 이메일: ${user?.email}`);
+    
+    try {
+      const { data, error } = await supabase
+        .from('products')
+        .update({
+          user_id: user.id,
+          user_email: user.email,
+          user_nickname: user.user_metadata?.nickname || user.email?.split('@')[0]
+        })
+        .eq('user_id', '00000000-0000-0000-0000-000000000001');
+      
+      if (error) {
+        addLog(`업데이트 실패: ${error.message}`);
+      } else {
+        addLog(`업데이트 성공: ${data?.length || 0}개 상품 업데이트됨`);
+        // 상품 목록 새로고침
+        loadProducts();
+      }
+    } catch (error) {
+      addLog(`업데이트 오류: ${error.message}`);
+    }
+    addLog('=== 업데이트 완료 ===');
+  };
+
   return (
     <div className="notion-page p-6 max-w-6xl mx-auto">
       <h1 className="text-2xl font-bold text-slate-900 mb-6">상품 소유권 디버깅</h1>
@@ -105,6 +134,12 @@ export default function DebugOwnershipPage() {
               className="notion-btn-primary text-sm"
             >
               소유권 테스트
+            </button>
+            <button 
+              onClick={updateProductOwnership}
+              className="notion-btn-primary text-sm bg-orange-500 hover:bg-orange-600"
+            >
+              소유권 업데이트
             </button>
           </div>
         </div>
