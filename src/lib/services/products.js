@@ -36,28 +36,40 @@ export const getProduct = async (id) => {
 // 새 상품 생성
 export const createProduct = async (product) => {
   try {
+    console.log('Creating product with data:', product)
+    
+    const productData = {
+      title: product.title,
+      description: product.description || product.desc,
+      category: product.category,
+      price: product.price === '나눔' ? 0 : parseInt(product.price),
+      status: product.status || null,
+      image: product.image,
+      images: product.images || [product.image],
+      location: product.location,
+      distance: product.distance || '',
+      view_count: 0,
+      like_count: 0,
+      chat_count: 0
+    }
+    
+    console.log('Formatted product data:', productData)
+    
     const { data, error } = await supabase
       .from('products')
-      .insert([{
-        title: product.title,
-        description: product.description || product.desc,
-        category: product.category,
-        price: product.price === '나눔' ? 0 : parseInt(product.price),
-        status: product.status || null,
-        image: product.image,
-        images: product.images || [product.image],
-        location: product.location,
-        distance: product.distance || '',
-        view_count: 0,
-        like_count: 0,
-        chat_count: 0
-      }])
+      .insert([productData])
       .select()
     
-    if (error) throw error
+    console.log('Supabase response:', { data, error })
+    
+    if (error) {
+      console.error('Supabase error details:', error)
+      throw new Error(`Supabase error: ${error.message}`)
+    }
+    
     return data[0]
   } catch (error) {
-    console.error('Error creating product:', error)
+    console.error('Error creating product:', error.message || error)
     throw error
   }
 }
