@@ -1,89 +1,300 @@
-// components/CommentSection.jsx
-import { useState } from 'react';
+'use client';
 
-export default function CommentSection({ 
-  productId, 
-  comments, 
-  onAddComment, 
-  onRemoveComment 
-}) {
-  const [comment, setComment] = useState('');
+import { useState, useEffect } from 'react';
+import { useAuth } from '@/contexts/AuthContext';
+import { getComments, createComment, updateComment, deleteComment, subscribeToComments, unsubscribeFromComments } from '@/lib/services/comments';
 
-  const handleAddComment = () => {
-    if (!comment.trim()) {
-      alert('댓글을 입력해주세요.');
+export default function CommentSection({ productId }) {
+  const { user, isAuthenticated } = useAuth();
+  const [comments, setComments] = useState([]);
+  const [newComment, setNewComment] = useState('');
+  const [editingComment, setEditingComment] = useState(null);
+  const [editContent, setEditContent] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // 댓글 로드
+  useEffect(() => {
+    const loadComments = async () => {
+      setIsLoading(true);
+      try {
+        const commentsData = await getComments(productId);
+        setComments(commentsData);
+      } catch (error) {
+        console.error('Failed to load comments:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    if (productId) {
+      loadComments();
+    }
+  }, [productId]);
+
+  // 실시간 댓글 구독
+  useEffect(() => {
+    if (!productId) return;
+
+    const subscription = subscribeToComments(productId, (payload) => {
+      console.log('🔄 Real-time comment update:', payload);
+      
+      if (payload.eventType === 'INSERT') {
+        setComments(prev => [...prev, payload.new]);
+      } else if (payload.eventType === 'UPDATE') {
+        setComments(prev => prev.map(comment => 
+          comment.id === payload.new.id ? payload.new : comment
+        ));
+      } else if (payload.eventType === 'DELETE') {
+        setComments(prev => prev.filter(comment => comment.id !== payload.old.id));
+      }
+    });
+
+    return () => {
+      unsubscribeFromComments(subscription);
+    };
+  }, [productId]);
+
+  // 댓글 작성
+  const handleSubmitComment = async (e) => {
+    e.preventDefault();
+    
+    if (!isAuthenticated) {
+      alert('로그인이 필요합니다.');
       return;
     }
-    
-    const newComment = {
-      id: Date.now(),
-      text: comment.trim(),
-      author: '익명',
-      createdAt: new Date().toLocaleString('ko-KR'),
-      avatar: '😊'
-    };
-    
-    onAddComment(newComment);
-    setComment('');
+
+    if (!newComment.trim()) {
+      alert('댓글 내용을 입력해주세요.');
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      const result = await createComment(productId, newComment, user);
+      
+      if (result.success) {
+        setNewComment('');
+        console.log('✅ Comment submitted successfully');
+      } else {
+        alert('댓글 작성에 실패했습니다: ' + result.error);
+      }
+    } catch (error) {
+      console.error('Comment submission error:', error);
+      alert('댓글 작성 중 오류가 발생했습니다.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
-  return (
-    <div className="notion-card p-5">
-      <h3 className="text-lg font-semibold text-slate-900 mb-4">댓글 {comments.length}개</h3>
+  // 댓글 수정 시작
+  const handleStartEdit = (comment) => {
+    setEditingComment(comment.id);
+    setEditContent(comment.content);
+  };
+
+  // 댓글 수정 취소
+  const handleCancelEdit = () => {
+    setEditingComment(null);
+    setEditContent('');
+  };
+
+  // 댓글 수정 제출
+  const handleSubmitEdit = async (commentId) => {
+    if (!editContent.trim()) {
+      alert('댓글 내용을 입력해주세요.');
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      const result = await updateComment(commentId, editContent, user);
       
-      {/* 댓글 입력 */}
-      <div className="flex gap-3 mb-6">
-        <div className="w-8 h-8 bg-gradient-to-br from-green-500 to-blue-600 rounded-full flex items-center justify-center text-white text-sm">
-          😊
-        </div>
-        <div className="flex-1 flex gap-2">
-          <input 
-            value={comment} 
-            onChange={e => setComment(e.target.value)} 
-            placeholder="댓글을 입력하세요..."
-            className="flex-1 notion-input py-2"
-            onKeyPress={(e) => e.key === 'Enter' && handleAddComment()}
-          />
-          <button 
-            onClick={handleAddComment}
-            className="notion-btn-primary px-4 py-2"
-          >
-            등록
-          </button>
+      if (result.success) {
+        setEditingComment(null);
+        setEditContent('');
+        console.log('✅ Comment updated successfully');
+      } else {
+        alert('댓글 수정에 실패했습니다: ' + result.error);
+      }
+    } catch (error) {
+      console.error('Comment update error:', error);
+      alert('댓글 수정 중 오류가 발생했습니다.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // 댓글 삭제
+  const handleDeleteComment = async (commentId) => {
+    if (!confirm('정말로 이 댓글을 삭제하시겠습니까?')) {
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      const result = await deleteComment(commentId, user);
+      
+      if (result.success) {
+        console.log('✅ Comment deleted successfully');
+      } else {
+        alert('댓글 삭제에 실패했습니다: ' + result.error);
+      }
+    } catch (error) {
+      console.error('Comment deletion error:', error);
+      alert('댓글 삭제 중 오류가 발생했습니다.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // 시간 포맷팅
+  const formatTimeAgo = (dateString) => {
+    const now = new Date();
+    const date = new Date(dateString);
+    const diffInSeconds = Math.floor((now - date) / 1000);
+
+    if (diffInSeconds < 60) return '방금 전';
+    if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)}분 전`;
+    if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)}시간 전`;
+    if (diffInSeconds < 2592000) return `${Math.floor(diffInSeconds / 86400)}일 전`;
+    
+    return date.toLocaleDateString('ko-KR');
+  };
+
+  if (isLoading) {
+    return (
+      <div className="notion-card p-6">
+        <h3 className="text-lg font-semibold text-slate-900 mb-4">댓글</h3>
+        <div className="text-center py-8">
+          <div className="inline-block animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500"></div>
+          <p className="text-slate-600 mt-2">댓글을 불러오는 중...</p>
         </div>
       </div>
+    );
+  }
+
+  return (
+    <div className="notion-card p-6">
+      <h3 className="text-lg font-semibold text-slate-900 mb-4">
+        댓글 ({comments.length})
+      </h3>
+
+      {/* 댓글 작성 폼 */}
+      {isAuthenticated ? (
+        <form onSubmit={handleSubmitComment} className="mb-6">
+          <div className="flex gap-3">
+            <input
+              type="text"
+              value={newComment}
+              onChange={(e) => setNewComment(e.target.value)}
+              placeholder="댓글을 입력하세요..."
+              className="flex-1 notion-input"
+              disabled={isSubmitting}
+            />
+            <button
+              type="submit"
+              disabled={isSubmitting || !newComment.trim()}
+              className="notion-btn-primary px-6"
+            >
+              {isSubmitting ? '작성 중...' : '작성'}
+            </button>
+          </div>
+        </form>
+      ) : (
+        <div className="mb-6 p-4 bg-gray-50 rounded-lg text-center">
+          <p className="text-slate-600 mb-2">댓글을 작성하려면 로그인이 필요합니다.</p>
+          <button 
+            onClick={() => window.location.href = '/login'}
+            className="notion-btn-primary text-sm"
+          >
+            로그인하기
+          </button>
+        </div>
+      )}
 
       {/* 댓글 목록 */}
       <div className="space-y-4">
         {comments.length === 0 ? (
-          <div className="text-center py-8 text-gray-500">
-            <svg className="w-12 h-12 mx-auto mb-3 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-            </svg>
-            <p className="text-sm">아직 댓글이 없어요</p>
-            <p className="text-xs text-gray-400 mt-1">첫 번째 댓글을 남겨보세요!</p>
+          <div className="text-center py-8 text-slate-500">
+            <p>아직 댓글이 없습니다.</p>
+            <p className="text-sm">첫 번째 댓글을 작성해보세요!</p>
           </div>
         ) : (
-          comments.map((c) => (
-            <div key={c.id} className="flex gap-3 p-3 bg-gray-50 rounded-lg">
-              <div className="w-8 h-8 bg-gradient-to-br from-purple-500 to-pink-600 rounded-full flex items-center justify-center text-white text-sm">
-                {c.avatar}
-              </div>
-              <div className="flex-1">
-                <div className="flex items-center gap-2 mb-1">
-                  <span className="font-medium text-slate-900 text-sm">{c.author}</span>
-                  <span className="text-xs text-gray-500">{c.createdAt}</span>
+          comments.map((comment) => (
+            <div key={comment.id} className="border-b border-gray-100 pb-4 last:border-b-0">
+              <div className="flex items-start justify-between">
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                      <span className="text-sm font-medium text-blue-600">
+                        {comment.user_nickname?.[0]?.toUpperCase() || '?'}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="font-medium text-slate-900">
+                        {comment.user_nickname || '익명'}
+                      </span>
+                      <span className="text-sm text-slate-500 ml-2">
+                        {formatTimeAgo(comment.created_at)}
+                      </span>
+                    </div>
+                  </div>
+                  
+                  {editingComment === comment.id ? (
+                    <div className="ml-10">
+                      <input
+                        type="text"
+                        value={editContent}
+                        onChange={(e) => setEditContent(e.target.value)}
+                        className="w-full notion-input mb-2"
+                        disabled={isSubmitting}
+                      />
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => handleSubmitEdit(comment.id)}
+                          disabled={isSubmitting}
+                          className="notion-btn-primary text-sm px-3 py-1"
+                        >
+                          {isSubmitting ? '수정 중...' : '저장'}
+                        </button>
+                        <button
+                          onClick={handleCancelEdit}
+                          disabled={isSubmitting}
+                          className="notion-btn-secondary text-sm px-3 py-1"
+                        >
+                          취소
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="ml-10">
+                      <p className="text-slate-700">{comment.content}</p>
+                      
+                      {/* 본인 댓글인 경우 수정/삭제 버튼 */}
+                      {isAuthenticated && user?.id === comment.user_id && (
+                        <div className="flex gap-2 mt-2">
+                          <button
+                            onClick={() => handleStartEdit(comment)}
+                            className="text-sm text-blue-600 hover:text-blue-700"
+                          >
+                            수정
+                          </button>
+                          <button
+                            onClick={() => handleDeleteComment(comment.id)}
+                            className="text-sm text-red-600 hover:text-red-700"
+                          >
+                            삭제
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
-                <p className="text-slate-700 text-sm leading-relaxed">{c.text}</p>
               </div>
-              <button 
-                onClick={() => onRemoveComment(c.id)}
-                className="p-1 text-gray-400 hover:text-red-500 transition-colors"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                </svg>
-              </button>
             </div>
           ))
         )}

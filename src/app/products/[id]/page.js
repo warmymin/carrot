@@ -4,7 +4,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { useState, useEffect, useRef } from 'react';
 import CommentSection from '@/components/CommentSection';
 import ChatModal from '@/components/ChatModal';
-import { createLikeNotification, createCommentNotification } from '@/utils/notifications';
+import { createLikeNotification } from '@/utils/notifications';
 import { getProduct, getProducts, updateProduct, updateLikeCount } from '@/lib/services/products';
 
 export default function ProductDetailPage() {
@@ -18,8 +18,7 @@ export default function ProductDetailPage() {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef(null);
   
-  // 댓글 기능
-  const [comments, setComments] = useState([]);
+  // 댓글 기능 (Supabase 연동으로 자동 처리됨)
   
   // 좋아요 기능
   const [likes, setLikes] = useState(0);
@@ -136,33 +135,7 @@ export default function ProductDetailPage() {
   };
 
   // 댓글 추가
-  const handleAddComment = (newComment) => {
-    const newComments = [...comments, newComment];
-    setComments(newComments);
-    
-    // 로컬 스토리지에 저장
-    localStorage.setItem(`comments_${id}`, JSON.stringify(newComments));
-    
-    // 상품의 댓글 수 업데이트
-    updateProductChatCount(parseInt(id), newComments.length);
-    
-    // 댓글 알림 생성 (본인 상품이 아닌 경우만)
-    if (product) {
-      createCommentNotification(product.title, newComment.author);
-    }
-  };
-
-  // 댓글 삭제
-  const handleRemoveComment = (commentId) => {
-    const newComments = comments.filter(c => c.id !== commentId);
-    setComments(newComments);
-    
-    // 로컬 스토리지에 저장
-    localStorage.setItem(`comments_${id}`, JSON.stringify(newComments));
-    
-    // 상품의 댓글 수 업데이트
-    updateProductChatCount(parseInt(id), newComments.length);
-  };
+  // 댓글 기능은 CommentSection 컴포넌트에서 Supabase로 처리됨
 
   // 좋아요 토글 (Supabase 연동)
   const toggleLike = async () => {
@@ -195,15 +168,7 @@ export default function ProductDetailPage() {
     }
   };
 
-  // 상품 정보 업데이트 (댓글 수) - 추후 Supabase 연동 예정
-  const updateProductChatCount = (productId, chatCount) => {
-    // localStorage 업데이트는 유지 (댓글 시스템이 아직 Supabase 미연동)
-    const savedProducts = JSON.parse(localStorage.getItem('carrotProducts') || '[]');
-    const updatedProducts = savedProducts.map(p => 
-      p.id === productId ? { ...p, chatCount } : p
-    );
-    localStorage.setItem('carrotProducts', JSON.stringify(updatedProducts));
-  };
+  // 댓글 수는 Supabase 트리거로 자동 업데이트됨
 
   // 상품 삭제 기능
   const deleteProduct = () => {
@@ -219,8 +184,7 @@ export default function ProductDetailPage() {
       const updatedProducts = savedProducts.filter(p => p.id !== parseInt(id));
       localStorage.setItem('carrotProducts', JSON.stringify(updatedProducts));
 
-      // 관련 댓글과 좋아요 데이터도 삭제
-      localStorage.removeItem(`comments_${id}`);
+      // 관련 좋아요 데이터 삭제 (댓글은 Supabase에서 CASCADE로 자동 삭제)
       localStorage.removeItem(`likes_${id}`);
       localStorage.removeItem(`isLiked_${id}`);
 
@@ -648,7 +612,7 @@ export default function ProductDetailPage() {
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
                   </svg>
-                  <span className="text-sm">{comments.length}</span>
+                  <span className="text-sm">댓글</span>
                 </div>
               </div>
               
@@ -668,13 +632,8 @@ export default function ProductDetailPage() {
             </div>
           </div>
 
-          {/* 댓글 섹션 */}
-          <CommentSection
-            productId={id}
-            comments={comments}
-            onAddComment={handleAddComment}
-            onRemoveComment={handleRemoveComment}
-          />
+          {/* 댓글 섹션 (Supabase 연동) */}
+          <CommentSection productId={id} />
         </div>
       </div>
 
