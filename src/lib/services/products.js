@@ -19,16 +19,30 @@ export const getProducts = async () => {
 // 상품 상세 조회
 export const getProduct = async (id) => {
   try {
+    console.log('🔍 Fetching product with ID:', id, typeof id)
+    
     const { data, error } = await supabase
       .from('products')
       .select('*')
       .eq('id', id)
       .single()
     
-    if (error) throw error
+    console.log('📦 Product query result:', { data, error })
+    
+    if (error) {
+      console.error('❌ Supabase error:', error)
+      throw new Error(`Product fetch error: ${error.message}`)
+    }
+    
+    if (!data) {
+      console.warn('⚠️ No product found with ID:', id)
+      return null
+    }
+    
+    console.log('✅ Product found:', data)
     return data
   } catch (error) {
-    console.error('Error fetching product:', error)
+    console.error('💥 Error fetching product:', error.message || error)
     return null
   }
 }

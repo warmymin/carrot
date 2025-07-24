@@ -3,7 +3,9 @@
 import { useParams, useRouter } from 'next/navigation';
 import { useState, useEffect, useRef } from 'react';
 import CommentSection from '@/components/CommentSection';
+import ChatModal from '@/components/ChatModal';
 import { createLikeNotification, createCommentNotification } from '@/utils/notifications';
+import { getProduct, updateProduct, updateLikeCount } from '@/lib/services/products';
 
 export default function ProductDetailPage() {
   const { id } = useParams();
@@ -23,8 +25,13 @@ export default function ProductDetailPage() {
   const [likes, setLikes] = useState(0);
   const [isLiked, setIsLiked] = useState(false);
 
-  // 기본 상품 데이터
-  const defaultProducts = [
+  // 채팅 기능
+  const [isChatModalOpen, setIsChatModalOpen] = useState(false);
+  const [seller, setSeller] = useState(null);
+  const [currentUser, setCurrentUser] = useState(null);
+
+  // 기본 상품 데이터 (Supabase 연동으로 더 이상 사용 안 함)
+  /* const defaultProducts = [
     {
       id: 1,
       title: "파세코 창문형 인버터 에어컨 PWA-3250W (연장)",
@@ -121,7 +128,7 @@ export default function ProductDetailPage() {
         "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=600&auto=format"
       ]
     }
-  ];
+  ]; */
 
   const formatPrice = (price) => {
     if (price === '나눔') return price;
@@ -157,41 +164,43 @@ export default function ProductDetailPage() {
     updateProductChatCount(parseInt(id), newComments.length);
   };
 
-  // 좋아요 토글
-  const toggleLike = () => {
-    const newIsLiked = !isLiked;
-    const newLikes = newIsLiked ? likes + 1 : likes - 1;
-    
-    setIsLiked(newIsLiked);
-    setLikes(newLikes);
-    
-    // 로컬 스토리지에 저장
-    localStorage.setItem(`likes_${id}`, newLikes.toString());
-    localStorage.setItem(`isLiked_${id}`, newIsLiked.toString());
-    
-    // 좋아요 시 알림 생성 (본인 상품이 아닌 경우만)
-    if (newIsLiked && product) {
-      createLikeNotification(product.title);
+  // 좋아요 토글 (Supabase 연동)
+  const toggleLike = async () => {
+    try {
+      const newIsLiked = !isLiked;
+      const newLikes = newIsLiked ? likes + 1 : likes - 1;
+      
+      // 즉시 UI 업데이트 (UX 향상)
+      setIsLiked(newIsLiked);
+      setLikes(newLikes);
+      
+      // 로컬 스토리지에 사용자 좋아요 상태 저장
+      localStorage.setItem(`isLiked_${id}`, newIsLiked.toString());
+      
+      // Supabase에 좋아요 수 업데이트
+      await updateLikeCount(parseInt(id), newLikes);
+      console.log('✅ Like count updated in Supabase:', newLikes);
+      
+      // 좋아요 시 알림 생성 (본인 상품이 아닌 경우만)
+      if (newIsLiked && product) {
+        createLikeNotification(product.title);
+      }
+      
+    } catch (error) {
+      console.error('💥 Error updating like count:', error);
+      // 오류 시 UI 되돌리기
+      setIsLiked(isLiked);
+      setLikes(likes);
+      alert('좋아요 처리 중 오류가 발생했습니다.');
     }
-    
-    // 상품의 좋아요 수 업데이트
-    updateProductLikeCount(parseInt(id), newLikes);
   };
 
-  // 상품 정보 업데이트 (댓글 수)
+  // 상품 정보 업데이트 (댓글 수) - 추후 Supabase 연동 예정
   const updateProductChatCount = (productId, chatCount) => {
+    // localStorage 업데이트는 유지 (댓글 시스템이 아직 Supabase 미연동)
     const savedProducts = JSON.parse(localStorage.getItem('carrotProducts') || '[]');
     const updatedProducts = savedProducts.map(p => 
       p.id === productId ? { ...p, chatCount } : p
-    );
-    localStorage.setItem('carrotProducts', JSON.stringify(updatedProducts));
-  };
-
-  // 상품 정보 업데이트 (좋아요 수)
-  const updateProductLikeCount = (productId, likeCount) => {
-    const savedProducts = JSON.parse(localStorage.getItem('carrotProducts') || '[]');
-    const updatedProducts = savedProducts.map(p => 
-      p.id === productId ? { ...p, likeCount } : p
     );
     localStorage.setItem('carrotProducts', JSON.stringify(updatedProducts));
   };
@@ -293,45 +302,118 @@ export default function ProductDetailPage() {
   }, []);
 
   useEffect(() => {
-    // 로컬 스토리지에서 등록된 상품들 불러오기
-    const savedProducts = JSON.parse(localStorage.getItem('carrotProducts') || '[]');
-    const allProducts = [...savedProducts, ...defaultProducts];
+    // URL 파라미터 확인하여 채팅 모달 자동 열기
+    if (typeof window !== 'undefined') {
+      const urlParams = new URLSearchParams(window.location.search);
+      const shouldOpenChat = urlParams.get('openChat') === 'true';
+      if (shouldOpenChat) {
+        // 약간의 지연 후 채팅 모달 열기 (상품 데이터 로드 후)
+        setTimeout(() => {
+          handleStartChat();
+        }, 1000);
+      }
+    }
+
+    // Supabase에서 상품 데이터 로드
+    const loadProductFromSupabase = async () => {
+      try {
+        console.log('🔍 Loading product from Supabase, ID:', id);
+        
+        const productData = await getProduct(parseInt(id));
+        
+        if (productData) {
+          console.log('✅ Product loaded from Supabase:', productData);
+          
+          // Supabase 데이터를 UI 형식에 맞게 변환
+          const formattedProduct = {
+            ...productData,
+            desc: productData.description,
+            detailDesc: productData.description || "상품 설명이 없습니다.",
+            images: productData.images || [productData.image],
+            timeAgo: formatTimeAgo(productData.created_at),
+            seller: {
+              name: "판매자",
+              location: productData.location || "응암동",
+              manner: "36.5°C",
+              avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&auto=format"
+            }
+          };
+          
+          setProduct(formattedProduct);
+          setIsMyProduct(false); // 현재는 모든 상품을 다른 사람 것으로 처리
+          
+          // 좋아요와 댓글 데이터는 Supabase 데이터 사용
+          setLikes(productData.like_count || 0);
+          setComments([]); // 추후 댓글 시스템도 Supabase로 연동 예정
+          
+          // 로컬 저장된 사용자 좋아요 상태 확인
+          const savedIsLiked = localStorage.getItem(`isLiked_${id}`) === 'true';
+          setIsLiked(savedIsLiked);
+          
+        } else {
+          console.log('❌ Product not found in Supabase');
+          alert('상품을 찾을 수 없습니다.');
+          router.push('/');
+        }
+      } catch (error) {
+        console.error('💥 Error loading product:', error);
+        alert('상품을 불러오는 중 오류가 발생했습니다.');
+        router.push('/');
+      }
+    };
+
+    if (id) {
+      loadProductFromSupabase();
+    }
+
+    // 현재 사용자 로드
+    loadCurrentUser();
+  }, [id, router]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // 시간 포맷팅 함수
+  const formatTimeAgo = (timestamp) => {
+    const now = new Date();
+    const createdAt = new Date(timestamp);
+    const diffInMinutes = Math.floor((now - createdAt) / (1000 * 60));
     
-    // ID로 상품 찾기
-    const foundProduct = allProducts.find(p => p.id === parseInt(id));
-    
-    if (foundProduct) {
-      // 등록된 상품에 기본값 추가
-      if (!foundProduct.seller) {
-        foundProduct.seller = {
-          name: "판매자",
-          location: foundProduct.location || "응암동",
-          manner: "36.5°C",
-          avatar: "😊"
-        };
-      }
-      if (!foundProduct.detailDesc) {
-        foundProduct.detailDesc = foundProduct.desc || "상품 설명이 없습니다.";
-      }
-      if (!foundProduct.images) {
-        foundProduct.images = [foundProduct.image];
-      }
-      setProduct(foundProduct);
-      
-      // 내가 등록한 상품인지 확인 (저장된 상품에만 삭제 권한)
-      const isUserProduct = savedProducts.some(p => p.id === parseInt(id));
-      setIsMyProduct(isUserProduct);
-      
-      // 댓글과 좋아요 데이터 불러오기
-      const savedComments = JSON.parse(localStorage.getItem(`comments_${id}`) || '[]');
-      const savedLikes = parseInt(localStorage.getItem(`likes_${id}`) || foundProduct.likeCount || '0');
-      const savedIsLiked = localStorage.getItem(`isLiked_${id}`) === 'true';
-      
-      setComments(savedComments);
-      setLikes(savedLikes);
-      setIsLiked(savedIsLiked);
-    } 
-  }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (diffInMinutes < 1) return '방금 전';
+    if (diffInMinutes < 60) return `${diffInMinutes}분 전`;
+    if (diffInMinutes < 1440) return `${Math.floor(diffInMinutes / 60)}시간 전`;
+    return `${Math.floor(diffInMinutes / 1440)}일 전`;
+  };
+
+
+
+  const loadCurrentUser = () => {
+    // 현재 사용자를 고정 ID로 설정 (홍길동)
+    const currentUserId = '00000000-0000-0000-0000-000000000001';
+    setCurrentUser({
+      id: currentUserId,
+      nickname: '홍길동',
+      avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&h=100&fit=crop&crop=face'
+    });
+    localStorage.setItem('currentUserId', currentUserId);
+  };
+
+  const handleStartChat = () => {
+    if (product && currentUser) {
+      // 상품의 판매자 정보를 바탕으로 채팅 상대 설정
+      const productSeller = {
+        id: '00000000-0000-0000-0000-000000000002', // 임시 고정 ID (김철수)
+        nickname: product.seller?.name || '판매자',
+        avatar: product.seller?.avatar || 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=crop&crop=face'
+      };
+      setSeller(productSeller);
+      setIsChatModalOpen(true);
+    } else {
+      alert('잠시 후 다시 시도해주세요.');
+    }
+  };
+
+  const handleCloseChatModal = () => {
+    setIsChatModalOpen(false);
+    setSeller(null);
+  };
 
   const handleBack = () => {
     router.back();
@@ -586,14 +668,16 @@ export default function ProductDetailPage() {
         </div>
       </div>
 
-      {/* 하단 좋아요 버튼 */}
+      {/* 하단 버튼들 */}
       <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-4 safe-area-bottom backdrop-blur-md bg-white/90">
         <div className="notion-container">
-          <div className="flex items-center justify-center">
+          <div className="flex items-center gap-3">
             <button 
               onClick={toggleLike}
-              className={`notion-btn-primary flex items-center gap-2 ${
-                isLiked ? 'bg-red-500 hover:bg-red-600' : ''
+              className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-xl font-medium transition-all duration-200 ${
+                isLiked 
+                  ? 'bg-red-500 hover:bg-red-600 text-white' 
+                  : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
               }`}
             >
               <svg className="w-5 h-5" fill={isLiked ? "currentColor" : "none"} stroke="currentColor" viewBox="0 0 24 24">
@@ -601,9 +685,30 @@ export default function ProductDetailPage() {
               </svg>
               <span>{isLiked ? '좋아요 취소' : '좋아요'}</span>
             </button>
+            
+            <button 
+              onClick={handleStartChat}
+              className="flex-1 flex items-center justify-center gap-2 py-3 px-4 bg-orange-500 hover:bg-orange-600 text-white rounded-xl font-medium transition-all duration-200"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+              </svg>
+              <span>채팅하기</span>
+            </button>
           </div>
         </div>
       </div>
+
+      {/* 채팅 모달 */}
+      {isChatModalOpen && product && currentUser && seller && (
+        <ChatModal
+          isOpen={isChatModalOpen}
+          onClose={handleCloseChatModal}
+          product={product}
+          currentUser={currentUser}
+          otherUser={seller}
+        />
+      )}
     </div>
   );
 }
