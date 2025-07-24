@@ -1,5 +1,6 @@
 import "./globals.css";
 import AuthWrapper from "@/components/AuthWrapper";
+import EnvCheck from "@/components/EnvCheck";
 
 export const metadata = {
   title: "당근마켓",
@@ -19,6 +20,7 @@ export default function RootLayout({ children }) {
         <AuthWrapper>
           {children}
         </AuthWrapper>
+        <EnvCheck />
       </body>
     </html>
   );
