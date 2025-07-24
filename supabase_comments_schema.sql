@@ -1,3 +1,12 @@
+-- products 테이블에 comment_count 컬럼 추가 (없는 경우에만)
+DO $$ 
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+                 WHERE table_name = 'products' AND column_name = 'comment_count') THEN
+    ALTER TABLE products ADD COLUMN comment_count INTEGER DEFAULT 0;
+  END IF;
+END $$;
+
 -- 댓글 테이블 생성
 CREATE TABLE IF NOT EXISTS comments (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
@@ -52,6 +61,14 @@ CREATE TRIGGER update_product_comment_count_trigger
   AFTER INSERT OR DELETE ON comments
   FOR EACH ROW
   EXECUTE FUNCTION update_product_comment_count();
+
+-- 기존 댓글 수를 계산하여 products 테이블 업데이트
+UPDATE products 
+SET comment_count = (
+  SELECT COUNT(*) 
+  FROM comments 
+  WHERE comments.product_id = products.id
+);
 
 -- 샘플 댓글 데이터 (선택사항)
 INSERT INTO comments (product_id, user_id, user_email, user_nickname, content) VALUES
