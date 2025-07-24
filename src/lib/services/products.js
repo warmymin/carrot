@@ -65,11 +65,8 @@ export const createProduct = async (product, user = null) => {
       distance: product.distance || '',
       view_count: 0,
       like_count: 0,
-      chat_count: 0,
-      // 사용자 정보 추가
-      user_id: user?.id || null,
-      user_email: user?.email || null,
-      user_nickname: user?.user_metadata?.nickname || user?.email?.split('@')[0] || null
+      chat_count: 0
+      // 사용자 정보는 나중에 추가 (컬럼이 없을 수 있음)
     }
     
     console.log('Formatted product data:', productData)
@@ -176,5 +173,36 @@ export const updateChatCount = async (id, count) => {
     if (error) throw error
   } catch (error) {
     console.error('Error updating chat count:', error)
+  }
+}
+
+// 상품 사용자 정보 업데이트 (컬럼이 있을 때만)
+export const updateProductUserInfo = async (id, user) => {
+  try {
+    if (!user) return;
+    
+    const updateData = {};
+    
+    // 컬럼이 있는지 확인하고 업데이트
+    try {
+      updateData.user_id = user.id;
+      updateData.user_email = user.email;
+      updateData.user_nickname = user.user_metadata?.nickname || user.email?.split('@')[0];
+      
+      const { error } = await supabase
+        .from('products')
+        .update(updateData)
+        .eq('id', id)
+      
+      if (error) {
+        console.warn('⚠️ Could not update user info (columns might not exist):', error.message);
+      } else {
+        console.log('✅ Product user info updated successfully');
+      }
+    } catch (error) {
+      console.warn('⚠️ User info columns might not exist yet:', error.message);
+    }
+  } catch (error) {
+    console.error('Error updating product user info:', error)
   }
 }

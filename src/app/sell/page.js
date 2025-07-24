@@ -5,7 +5,7 @@ import { Suspense } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import ProductForm from '@/components/ProductForm';
 import { createSystemNotification } from '@/utils/notifications';
-import { getProduct, createProduct, updateProduct } from '@/lib/services/products';
+import { getProduct, createProduct, updateProduct, updateProductUserInfo } from '@/lib/services/products';
 
 function SellPageContent() {
   const router = useRouter();
@@ -87,8 +87,14 @@ function SellPageContent() {
         savedProduct = await updateProduct(parseInt(editId), productDataForSave);
         alert('상품이 성공적으로 수정되었습니다!');
       } else {
-        // 새 상품 등록 (Supabase) - 사용자 정보 포함
+        // 새 상품 등록 (Supabase) - 사용자 정보는 나중에 업데이트
         savedProduct = await createProduct(productDataForSave, user);
+        
+        // 상품 등록 후 사용자 정보 업데이트 (컬럼이 있을 때만)
+        if (savedProduct && user) {
+          await updateProductUserInfo(savedProduct.id, user);
+        }
+        
         alert('상품이 성공적으로 등록되었습니다!');
         
         // 알림 생성
