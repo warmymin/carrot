@@ -1,4 +1,5 @@
 import "./globals.css";
+import AuthWrapper from "@/components/AuthWrapper";
 
 export const metadata = {
   title: "당근마켓",
@@ -15,7 +16,9 @@ export default function RootLayout({ children }) {
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
       </head>
       <body className="bg-gray-900 text-white antialiased">
-        {children}
+        <AuthWrapper>
+          {children}
+        </AuthWrapper>
       </body>
     </html>
   );

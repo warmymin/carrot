@@ -5,6 +5,7 @@ import ProductList from "@/components/ProductList";
 import SearchModal from "@/components/SearchModal";
 import NotificationModal from "@/components/NotificationModal";
 import { getProducts } from '@/lib/services/products';
+import { useAuth } from '@/contexts/AuthContext';
 
 // 기본 더미 상품 데이터
 const defaultProducts = [
@@ -67,6 +68,7 @@ const defaultProducts = [
 
 export default function Home() {
   const router = useRouter();
+  const { isAuthenticated, user } = useAuth();
   const [products, setProducts] = useState(defaultProducts);
   const [selectedCategory, setSelectedCategory] = useState('전체');
   
@@ -271,16 +273,42 @@ export default function Home() {
                 className="notion-icon-btn relative"
                 title="알림"
               >
-                                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 8a6 6 0 00-12 0v9h12V8z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.73 21a2 2 0 01-3.46 0" />
-                  </svg>
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 8a6 6 0 00-12 0v9h12V8z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.73 21a2 2 0 01-3.46 0" />
+                </svg>
                 {unreadNotificationCount > 0 && (
                   <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full min-w-[1.25rem] h-5 flex items-center justify-center px-1">
                     {unreadNotificationCount > 99 ? '99+' : unreadNotificationCount}
                   </span>
                 )}
               </button>
+              
+              {/* 인증 상태에 따른 버튼 */}
+              {isAuthenticated ? (
+                <button 
+                  onClick={() => router.push('/profile')}
+                  className="flex items-center gap-2 notion-btn-primary text-sm"
+                  title="프로필"
+                >
+                  <div className="w-6 h-6 bg-blue-700 rounded-full flex items-center justify-center">
+                    <span className="text-xs font-bold text-white">
+                      {user?.user_metadata?.nickname?.[0]?.toUpperCase() || user?.email?.[0]?.toUpperCase() || '?'}
+                    </span>
+                  </div>
+                  <span className="font-medium">
+                    {user?.user_metadata?.nickname || '프로필'}
+                  </span>
+                </button>
+              ) : (
+                <button 
+                  onClick={() => router.push('/login')}
+                  className="notion-btn-primary text-sm"
+                  title="로그인"
+                >
+                  로그인
+                </button>
+              )}
             </div>
           </div>
         </div>

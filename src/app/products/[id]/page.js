@@ -5,7 +5,7 @@ import { useState, useEffect, useRef } from 'react';
 import CommentSection from '@/components/CommentSection';
 import ChatModal from '@/components/ChatModal';
 import { createLikeNotification, createCommentNotification } from '@/utils/notifications';
-import { getProduct, updateProduct, updateLikeCount } from '@/lib/services/products';
+import { getProduct, getProducts, updateProduct, updateLikeCount } from '@/lib/services/products';
 
 export default function ProductDetailPage() {
   const { id } = useParams();
@@ -351,8 +351,18 @@ export default function ProductDetailPage() {
           setIsLiked(savedIsLiked);
           
         } else {
-          console.log('❌ Product not found in Supabase');
-          alert('상품을 찾을 수 없습니다.');
+          console.log('❌ Product not found in Supabase, ID:', id);
+          console.log('🔍 Available products in Supabase:');
+          
+          // 사용 가능한 상품 목록 확인
+          try {
+            const allProducts = await getProducts();
+            console.log('📋 All products:', allProducts.map(p => ({ id: p.id, title: p.title })));
+          } catch (err) {
+            console.error('Failed to fetch all products:', err);
+          }
+          
+          alert(`상품을 찾을 수 없습니다. (ID: ${id})`);
           router.push('/');
         }
       } catch (error) {
