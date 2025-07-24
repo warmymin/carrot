@@ -48,9 +48,10 @@ export const getProduct = async (id) => {
 }
 
 // 새 상품 생성
-export const createProduct = async (product) => {
+export const createProduct = async (product, user = null) => {
   try {
     console.log('Creating product with data:', product)
+    console.log('User data:', user)
     
     const productData = {
       title: product.title,
@@ -64,7 +65,11 @@ export const createProduct = async (product) => {
       distance: product.distance || '',
       view_count: 0,
       like_count: 0,
-      chat_count: 0
+      chat_count: 0,
+      // 사용자 정보 추가
+      user_id: user?.id || null,
+      user_email: user?.email || null,
+      user_nickname: user?.user_metadata?.nickname || user?.email?.split('@')[0] || null
     }
     
     console.log('Formatted product data:', productData)

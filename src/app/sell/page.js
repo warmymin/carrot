@@ -2,12 +2,14 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Suspense } from 'react';
+import { useAuth } from '@/contexts/AuthContext';
 import ProductForm from '@/components/ProductForm';
 import { createSystemNotification } from '@/utils/notifications';
 import { getProduct, createProduct, updateProduct } from '@/lib/services/products';
 
 function SellPageContent() {
   const router = useRouter();
+  const { user, isAuthenticated } = useAuth();
   const [editId, setEditId] = useState(null);
   const [isEditMode, setIsEditMode] = useState(false);
   const [productData, setProductData] = useState(null);
@@ -76,8 +78,8 @@ function SellPageContent() {
         savedProduct = await updateProduct(parseInt(editId), productDataForSave);
         alert('상품이 성공적으로 수정되었습니다!');
       } else {
-        // 새 상품 등록 (Supabase)
-        savedProduct = await createProduct(productDataForSave);
+        // 새 상품 등록 (Supabase) - 사용자 정보 포함
+        savedProduct = await createProduct(productDataForSave, user);
         alert('상품이 성공적으로 등록되었습니다!');
         
         // 알림 생성

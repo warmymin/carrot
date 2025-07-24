@@ -2,6 +2,7 @@
 'use client';
 import { useParams, useRouter } from 'next/navigation';
 import { useState, useEffect, useRef } from 'react';
+import { useAuth } from '@/contexts/AuthContext';
 import CommentSection from '@/components/CommentSection';
 import ChatModal from '@/components/ChatModal';
 import { createLikeNotification } from '@/utils/notifications';
@@ -10,6 +11,7 @@ import { getProduct, getProducts, updateProduct, updateLikeCount } from '@/lib/s
 export default function ProductDetailPage() {
   const { id } = useParams();
   const router = useRouter();
+  const { user, isAuthenticated } = useAuth();
   const [product, setProduct] = useState(null);
 
   const [isMyProduct, setIsMyProduct] = useState(false); // 내가 등록한 상품인지 확인
@@ -296,7 +298,7 @@ export default function ProductDetailPage() {
             images: productData.images || [productData.image],
             timeAgo: formatTimeAgo(productData.created_at),
             seller: {
-              name: "판매자",
+              name: productData.user_nickname || productData.user_email?.split('@')[0] || "판매자",
               location: productData.location || "응암동",
               manner: "36.5°C",
               avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&auto=format"
@@ -304,7 +306,17 @@ export default function ProductDetailPage() {
           };
           
           setProduct(formattedProduct);
-          setIsMyProduct(false); // 현재는 모든 상품을 다른 사람 것으로 처리
+          
+          // 현재 로그인된 사용자가 상품의 판매자인지 확인
+          const isMyProduct = isAuthenticated && user && productData.user_id === user.id;
+          setIsMyProduct(isMyProduct);
+          
+          console.log('👤 Product ownership check:', {
+            isAuthenticated,
+            currentUserId: user?.id,
+            productUserId: productData.user_id,
+            isMyProduct
+          });
           
           // 좋아요 데이터는 Supabase 데이터 사용 (댓글은 CommentSection에서 처리)
           setLikes(productData.like_count || 0);
@@ -341,7 +353,7 @@ export default function ProductDetailPage() {
 
     // 현재 사용자 로드
     loadCurrentUser();
-  }, [id, router]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [id, router, user, isAuthenticated]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 시간 포맷팅 함수
   const formatTimeAgo = (timestamp) => {
@@ -358,14 +370,24 @@ export default function ProductDetailPage() {
 
 
   const loadCurrentUser = () => {
-    // 현재 사용자를 고정 ID로 설정 (홍길동)
-    const currentUserId = '00000000-0000-0000-0000-000000000001';
-    setCurrentUser({
-      id: currentUserId,
-      nickname: '홍길동',
-      avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&h=100&fit=crop&crop=face'
-    });
-    localStorage.setItem('currentUserId', currentUserId);
+    // 인증된 사용자 정보 사용
+    if (isAuthenticated && user) {
+      setCurrentUser({
+        id: user.id,
+        nickname: user.user_metadata?.nickname || user.email?.split('@')[0] || '사용자',
+        avatar: user.user_metadata?.avatar_url || 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&h=100&fit=crop&crop=face'
+      });
+      console.log('👤 Current user loaded:', user);
+    } else {
+      // 로그인되지 않은 경우 기본 사용자 설정
+      const currentUserId = '00000000-0000-0000-0000-000000000001';
+      setCurrentUser({
+        id: currentUserId,
+        nickname: '홍길동',
+        avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&h=100&fit=crop&crop=face'
+      });
+      console.log('👤 Default user loaded (not authenticated)');
+    }
   };
 
   const handleStartChat = () => {
