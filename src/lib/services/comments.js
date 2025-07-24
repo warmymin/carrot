@@ -8,7 +8,7 @@ export const getComments = async (productId) => {
     const { data, error } = await supabase
       .from('comments')
       .select('*')
-      .eq('product_id', productId)
+      .eq('product_id', parseInt(productId))
       .order('created_at', { ascending: true })
     
     if (error) {
@@ -30,7 +30,7 @@ export const createComment = async (productId, content, user) => {
     console.log('💬 Creating comment for product:', productId)
     
     const commentData = {
-      product_id: productId,
+      product_id: parseInt(productId),
       user_id: user.id,
       user_email: user.email,
       user_nickname: user.user_metadata?.nickname || user.email?.split('@')[0],
@@ -121,7 +121,7 @@ export const subscribeToComments = (productId, callback) => {
         event: '*',
         schema: 'public',
         table: 'comments',
-        filter: `product_id=eq.${productId}`
+        filter: `product_id=eq.${parseInt(productId)}`
       },
       (payload) => {
         console.log('🔄 Comment change detected:', payload)
