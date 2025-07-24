@@ -16,12 +16,14 @@ export default function CommentSection({ productId }) {
   // 댓글 로드
   useEffect(() => {
     const loadComments = async () => {
+      console.log('🔄 Loading comments for product:', productId);
       setIsLoading(true);
       try {
         const commentsData = await getComments(productId);
+        console.log('📋 Loaded comments:', commentsData);
         setComments(commentsData);
       } catch (error) {
-        console.error('Failed to load comments:', error);
+        console.error('❌ Failed to load comments:', error);
       } finally {
         setIsLoading(false);
       }
@@ -59,6 +61,9 @@ export default function CommentSection({ productId }) {
   const handleSubmitComment = async (e) => {
     e.preventDefault();
     
+    console.log('🚀 Starting comment submission...')
+    console.log('🔐 Auth status:', { isAuthenticated, user: user?.id })
+    
     if (!isAuthenticated) {
       alert('로그인이 필요합니다.');
       return;
@@ -69,20 +74,27 @@ export default function CommentSection({ productId }) {
       return;
     }
 
+    console.log('📝 Submitting comment:', { productId, content: newComment, user: user?.id })
+
     setIsSubmitting(true);
 
     try {
       const result = await createComment(productId, newComment, user);
       
+      console.log('📊 Comment submission result:', result)
+      
       if (result.success) {
         setNewComment('');
         console.log('✅ Comment submitted successfully');
+        // 성공 메시지 표시
+        alert('댓글이 성공적으로 작성되었습니다!');
       } else {
+        console.error('❌ Comment submission failed:', result.error);
         alert('댓글 작성에 실패했습니다: ' + result.error);
       }
     } catch (error) {
-      console.error('Comment submission error:', error);
-      alert('댓글 작성 중 오류가 발생했습니다.');
+      console.error('💥 Comment submission error:', error);
+      alert('댓글 작성 중 오류가 발생했습니다: ' + error.message);
     } finally {
       setIsSubmitting(false);
     }

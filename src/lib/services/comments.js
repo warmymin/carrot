@@ -28,6 +28,7 @@ export const getComments = async (productId) => {
 export const createComment = async (productId, content, user) => {
   try {
     console.log('💬 Creating comment for product:', productId)
+    console.log('👤 User data:', { id: user.id, email: user.email, nickname: user.user_metadata?.nickname })
     
     const commentData = {
       product_id: parseInt(productId),
@@ -37,6 +38,8 @@ export const createComment = async (productId, content, user) => {
       content: content.trim()
     }
     
+    console.log('📝 Comment data to insert:', commentData)
+    
     const { data, error } = await supabase
       .from('comments')
       .insert([commentData])
@@ -45,13 +48,15 @@ export const createComment = async (productId, content, user) => {
     
     if (error) {
       console.error('❌ Error creating comment:', error)
+      console.error('❌ Error details:', { message: error.message, details: error.details, hint: error.hint })
       throw error
     }
     
-    console.log('✅ Comment created:', data)
+    console.log('✅ Comment created successfully:', data)
     return { success: true, data }
   } catch (error) {
     console.error('💥 Failed to create comment:', error.message)
+    console.error('💥 Full error:', error)
     return { success: false, error: error.message }
   }
 }
